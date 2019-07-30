@@ -54,6 +54,8 @@ class MatrixGestureDetector extends StatefulWidget {
 
   final Size size;
 
+  final bool alwaysShownInView;
+
   const MatrixGestureDetector({
     Key key,
     @required this.onMatrixUpdate,
@@ -63,6 +65,7 @@ class MatrixGestureDetector extends StatefulWidget {
     this.shouldScale = true,
     this.shouldRotate = true,
     this.clipChild = true,
+    this.alwaysShownInView = true,
     this.focalPointAlignment,
   })  : assert(onMatrixUpdate != null),
         assert(child != null),
@@ -181,6 +184,9 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
 
   // FIXME: pyshics is not real here but it's enough for our purpose.
   Offset destRestricted(Offset dest) {
+    if (!widget.alwaysShownInView)
+      return dest;
+    
     final Vector4 p00 = matrix * Vector4(0, 0, 0, 1);
     final Vector4 p10 = matrix * Vector4(widget.size.width, 0, 0, 1);
     final Vector4 p01 = matrix * Vector4(0, widget.size.height, 0, 1);

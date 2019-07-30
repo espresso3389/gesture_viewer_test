@@ -62,7 +62,7 @@ class _ScrollContentViewerState extends State<ScrollContentViewer> with SingleTi
       clipChild: false,
       shouldRotate: true,
       size: _contentSize * _ratio,
-      onMatrixUpdate: (m, tm, sm, rm) => setState(() {
+      onMatrixUpdate: (m) => setState(() {
         transform = m;
       }),
       child: Transform(
@@ -98,39 +98,6 @@ class CustomPagePainter extends CustomPainter {
 
     canvas.drawLine(p00, p11, col);
     canvas.drawLine(p10, p01, col);
-
-
-    
-    /*
-    final double zoom = transform.row0[0];
-    final double x0 = -transform.row0[3];
-    final double y0 = -transform.row1[3];
-
-    final b = 32;
-    final xFrom = (x0 / b).round();
-    final yFrom = (y0 / b).round();
-    final xBase = (x0 / zoom).toDouble();
-    final yBase = (y0 / zoom).toDouble();
-    final cols = (size.width / zoom / b).ceil();
-    final rows = (size.height / zoom / b).ceil();
-
-    print('yBase=$yBase,rows=$rows');
-
-    final paint = Paint();
-
-    for (int i = 0; i < rows; i++) {
-      print('idx=${i + yFrom}');
-      canvas.drawLine(Offset(0, (i * b).toDouble()), Offset(size.width, (i * b).toDouble()), paint);
-      
-      final span = TextSpan(style: TextStyle(color: Colors.grey[600]), text: '${i + yFrom}');
-      final tp = TextPainter(text: span, textAlign: TextAlign.left, textDirection: TextDirection.ltr);
-      tp.layout();
-      tp.paint(canvas, Offset(0, yBase + i * b));
-    }
-    */
-    /*for (double x = xFrom; x < xTo; x += b) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }*/
   }
 
   @override

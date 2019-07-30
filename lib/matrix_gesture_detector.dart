@@ -5,11 +5,7 @@ import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:vector_math/vector_math_64.dart';
 
-typedef MatrixGestureDetectorCallback = void Function(
-    Matrix4 matrix,
-    Matrix4 translationDeltaMatrix,
-    Matrix4 scaleDeltaMatrix,
-    Matrix4 rotationDeltaMatrix);
+typedef MatrixGestureDetectorCallback = void Function(Matrix4 matrix);
 
 /// [MatrixGestureDetector] detects translation, scale and rotation gestures
 /// and combines them into [Matrix4] object that can be used by [Transform] widget
@@ -77,9 +73,6 @@ class MatrixGestureDetector extends StatefulWidget {
 }
 
 class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with SingleTickerProviderStateMixin {
-  Matrix4 translationDeltaMatrix = Matrix4.identity();
-  Matrix4 scaleDeltaMatrix = Matrix4.identity();
-  Matrix4 rotationDeltaMatrix = Matrix4.identity();
   Matrix4 matrix = Matrix4.identity();
   AnimationController controller;
   Animation<Offset> animation;
@@ -126,15 +119,10 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
   }
 
   void onScaleUpdate(ScaleUpdateDetails details) {
-    translationDeltaMatrix = Matrix4.identity();
-    scaleDeltaMatrix = Matrix4.identity();
-    rotationDeltaMatrix = Matrix4.identity();
-
     // handle matrix translating
     if (widget.shouldTranslate) {
-      Offset translationDelta = translationUpdater.update(details.focalPoint);
-      translationDeltaMatrix = _translate(translationDelta);
-      matrix = translationDeltaMatrix * matrix;
+      final translationDelta = translationUpdater.update(details.focalPoint);
+      matrix = _translate(translationDelta) * matrix;
     }
 
     Offset focalPoint;
@@ -147,9 +135,8 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
 
     // handle matrix scaling
     if (widget.shouldScale && details.scale != 1.0) {
-      double scaleDelta = scaleUpdater.update(details.scale);
-      scaleDeltaMatrix = _scale(scaleDelta, focalPoint);
-      matrix = scaleDeltaMatrix * matrix;
+      final scaleDelta = scaleUpdater.update(details.scale);
+      matrix = _scale(scaleDelta, focalPoint) * matrix;
     }
 
     // handle matrix rotating
@@ -157,14 +144,12 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
       if (rotationUpdater.value.isNaN) {
         rotationUpdater.value = details.rotation;
       } else {
-        double rotationDelta = rotationUpdater.update(details.rotation);
-        rotationDeltaMatrix = _rotate(rotationDelta, focalPoint);
-        matrix = rotationDeltaMatrix * matrix;
+        final rotationDelta = rotationUpdater.update(details.rotation);
+        matrix = _rotate(rotationDelta, focalPoint) * matrix;
       }
     }
 
-    widget.onMatrixUpdate(
-        matrix, translationDeltaMatrix, scaleDeltaMatrix, rotationDeltaMatrix);
+    widget.onMatrixUpdate(matrix);
   }
 
   void onScaleEnd(ScaleEndDetails details) {
@@ -239,11 +224,7 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
       final cur = matrix.getTranslation();
       final trans = Matrix4.identity()..translate(animation.value.dx - cur.x, animation.value.dy - cur.y);
       matrix = trans * matrix;
-      translationDeltaMatrix = trans;
-      scaleDeltaMatrix = Matrix4.identity();
-      rotationDeltaMatrix = Matrix4.identity();
-      widget.onMatrixUpdate(
-        matrix, translationDeltaMatrix, scaleDeltaMatrix, rotationDeltaMatrix);
+      widget.onMatrixUpdate(matrix);
     });
   }
 

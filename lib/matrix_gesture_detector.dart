@@ -301,22 +301,3 @@ class _ValueUpdater<T> {
     return updated;
   }
 }
-
-class MatrixDecomposedValues {
-  /// Translation, in most cases useful only for matrices that are nothing but
-  /// a translation (no scale and no rotation).
-  final Offset translation;
-
-  /// Scaling factor.
-  final double scale;
-
-  /// Rotation in radians, (-pi..pi) range.
-  final double rotation;
-
-  MatrixDecomposedValues(this.translation, this.scale, this.rotation);
-
-  @override
-  String toString() {
-    return 'MatrixDecomposedValues(translation: $translation, scale: ${scale.toStringAsFixed(3)}, rotation: ${rotation.toStringAsFixed(3)})';
-  }
-}

@@ -2,10 +2,26 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'matrix_gesture_detector.dart';
 
-void main() => runApp(MyApp());
+void main() => runApp(ScrollContentViewer());
 
-class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
+class ScrollContentViewer extends StatefulWidget {
+  ScrollContentViewer({Key key}) : super(key: key);
+
+  @override
+  _ScrollContentViewerState createState() => _ScrollContentViewerState();
+}
+
+class _ScrollContentViewerState extends State<ScrollContentViewer> with SingleTickerProviderStateMixin {
+
+  final controller = MatrixGestureTransformController();
+  var _contentSize = Size(3000, 4000);
+  Matrix4 transform = Matrix4.identity();
+
+  @override
+  void didUpdateWidget(ScrollContentViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -16,55 +32,25 @@ class MyApp extends StatelessWidget {
       home: Scaffold(
         appBar: AppBar(
           title: Text('Hello, world!'),
+          actions: <Widget>[
+            IconButton(icon: Icon(Icons.home), onPressed: () => controller.moveTo(Offset.zero))
+          ],
         ),
-        body: ScrollContentViewer()
-      )
-    );
-  }
-}
-
-class ScrollContentViewer extends StatefulWidget {
-  ScrollContentViewer({Key key}) : super(key: key);
-
-  @override
-  _ScrollContentViewerState createState() => _ScrollContentViewerState();
-}
-
-class _ScrollContentViewerState extends State<ScrollContentViewer> with SingleTickerProviderStateMixin {
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  var _contentSize = Size(3000, 4000);
-  Matrix4 transform = Matrix4.identity();
-  double _ratio;
-
-  @override
-  void didUpdateWidget(ScrollContentViewer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _ratio = null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_ratio == null) {
-      final screenSize = MediaQuery.of(context).size;
-      _ratio = math.min(screenSize.width / _contentSize.width, screenSize.height / _contentSize.height);
-    }
-
-    return MatrixGestureTransform(
-      shouldRotate: true,
-      transform: Matrix4.identity().scaled(_ratio),
-      size: _contentSize,
-      builder: (context, transform) => CustomPaint(
-        painter: CustomPagePainter(contentSize: _contentSize, transform: transform),
-        size: _contentSize,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = math.min(constraints.maxWidth / _contentSize.width, constraints.maxHeight / _contentSize.height);
+            return MatrixGestureTransform(
+              controller: controller,
+              shouldRotate: true,
+              transform: Matrix4.identity().scaled(scale),
+              size: _contentSize,
+              builder: (context, transform) => CustomPaint(
+                painter: CustomPagePainter(contentSize: _contentSize, transform: transform),
+                size: _contentSize,
+              )
+            );
+          }
+        )
       )
     );
   }

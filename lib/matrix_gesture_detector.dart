@@ -8,6 +8,27 @@ import 'package:vector_math/vector_math_64.dart';
 typedef MatrixGestureTransformCallback = void Function(Matrix4 transform);
 typedef MatrixGestureTransformBuilder = Widget Function(BuildContext context, Matrix4 transform);
 
+class MatrixGestureTransformController {
+  _MatrixGestureTransformState _state;
+  void _associateState(_MatrixGestureTransformState state) {
+    _state = state;
+  }
+
+  void reset() => _state?.reset();
+  void moveTo(Offset dest, {bool animate = true}) => _state?.moveTo(dest, animate: animate);
+
+  Offset get currentPosition => _state?.currentPosition ?? Offset.zero;
+
+  /// Whether to detect translation gestures during the event processing.
+  bool shouldTranslate;
+
+  /// Whether to detect scale gestures during the event processing.
+  bool shouldScale;
+
+  /// Whether to detect rotation gestures during the event processing.
+  bool shouldRotate;
+}
+
 /// [MatrixGestureTransform] detects translation, scale and rotation gestures
 /// and combines them into [Matrix4] object that can be used by [Transform] widget
 /// or by low level [CustomPainter] code. You can customize types of reported
@@ -60,6 +81,8 @@ class MatrixGestureTransform extends StatefulWidget {
   ///
   final MatrixGestureTransformCallback onMatrixUpdate;
 
+  final MatrixGestureTransformController controller;
+
   const MatrixGestureTransform({
     Key key,
     @required this.size,
@@ -72,6 +95,7 @@ class MatrixGestureTransform extends StatefulWidget {
     this.transform,
     this.focalPointAlignment,
     this.onMatrixUpdate,
+    this.controller,
   })  : assert(child != null || builder != null),
         super(key: key);
 
@@ -81,25 +105,29 @@ class MatrixGestureTransform extends StatefulWidget {
 
 class _MatrixGestureTransformState extends State<MatrixGestureTransform> with SingleTickerProviderStateMixin {
   Matrix4 transform = Matrix4.identity();
-  AnimationController controller;
+  AnimationController animController;
   Animation<Offset> animation;
 
   @override
   void initState() {
     super.initState();
     transform = widget.transform;
-    controller = AnimationController(vsync: this, duration: Duration(milliseconds: 1000));
+    widget?.controller?._associateState(this);
+    animController = AnimationController(vsync: this, duration: Duration(milliseconds: 1000));
   }
 
   @override
   void dispose() {
-    controller?.dispose();
+    widget?.controller?._associateState(null);
+    animController?.dispose();
     super.dispose();
   }
 
   @override
   void didUpdateWidget(MatrixGestureTransform oldWidget) {
     super.didUpdateWidget(oldWidget);
+    oldWidget?.controller?._associateState(null);
+    widget?.controller?._associateState(this);
     if (oldWidget?.transform != widget.transform && widget.transform != null) {
       transform = widget.transform;
     }
@@ -125,6 +153,16 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
     widget.onMatrixUpdate?.call(transform);
   }
 
+  void reset() {
+    setState(() {
+      transform = widget.transform;
+    });
+  }
+
+  bool get shouldTranslate => widget.controller?.shouldTranslate ?? widget.shouldTranslate;
+  bool get shouldScale => widget.controller?.shouldScale ?? widget.shouldScale;
+  bool get shouldRotate => widget.controller?.shouldRotate ?? widget.shouldRotate;
+
   _ValueUpdater<Offset> translationUpdater = _ValueUpdater(
     onUpdate: (oldVal, newVal) => newVal - oldVal,
   );
@@ -144,7 +182,7 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
 
   void onScaleUpdate(ScaleUpdateDetails details) {
     // handle matrix translating
-    if (widget.shouldTranslate) {
+    if (shouldTranslate) {
       final translationDelta = translationUpdater.update(details.focalPoint);
       transform = _translate(translationDelta) * transform;
     }
@@ -158,13 +196,13 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
     }
 
     // handle matrix scaling
-    if (widget.shouldScale && details.scale != 1.0) {
+    if (shouldScale && details.scale != 1.0) {
       final scaleDelta = scaleUpdater.update(details.scale);
       transform = _scale(scaleDelta, focalPoint) * transform;
     }
 
     // handle matrix rotating
-    if (widget.shouldRotate && details.rotation != 0.0) {
+    if (shouldRotate && details.rotation != 0.0) {
       if (rotationUpdater.value.isNaN) {
         rotationUpdater.value = details.rotation;
       } else {
@@ -177,19 +215,25 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
   }
 
   void onScaleEnd(ScaleEndDetails details) {
+    final dest = destRestricted(currentPosition + calcDestination(velocity: details.velocity.pixelsPerSecond / 10, deceleration: 5));
+    moveTo(dest);
+  }
 
-    Vector3 transv = Vector3.zero(), scale = Vector3.zero();
-    Quaternion rotation = Quaternion.identity();
-    transform.decompose(transv, rotation, scale);
-
-    //print('trans=(${transv.x},${transv.y}), rotation=${rotation.radians}, scale=${scale.x},${scale.y}');
-
-    final currentPosition = Offset(transv.x, transv.y);
-    animation = Tween<Offset>(begin: currentPosition, end: destRestricted(currentPosition + calcDestination(velocity: details.velocity.pixelsPerSecond / 10, deceleration: 5)))
-      .animate(CurvedAnimation(parent: controller, curve: Curves.easeOutCubic));
+  void moveTo(Offset dest, {bool animate = true}) {
+    if (!animate) {
+      setState(() => transform.setTranslation(Vector3(dest.dx, dest.dy, 0)));
+      return;
+    }
+    animation = Tween<Offset>(begin: currentPosition, end: dest)
+      .animate(CurvedAnimation(parent: animController, curve: Curves.easeOutCubic));
     animation.addListener(onAnimate);
-    controller.reset();
-    controller.animateTo(1.0);
+    animController.reset();
+    animController.animateTo(1.0);
+  }
+
+  Offset get currentPosition {
+    final trans = transform.getTranslation();
+    return Offset(trans.x, trans.y);
   }
 
   static Offset calcDestination({Offset velocity, double deceleration}) {
@@ -256,8 +300,8 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
   }
 
   void stopAnimation() {
-     if (controller.isAnimating) {
-      controller.stop();
+     if (animController.isAnimating) {
+      animController.stop();
       animation?.removeListener(onAnimate);
       //controller.reset();
       animation = null;

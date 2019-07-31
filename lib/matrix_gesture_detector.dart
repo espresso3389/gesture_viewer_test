@@ -5,24 +5,23 @@ import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:vector_math/vector_math_64.dart';
 
-typedef MatrixGestureDetectorCallback = void Function(Matrix4 transform);
+typedef MatrixGestureTransformCallback = void Function(Matrix4 transform);
+typedef MatrixGestureTransformBuilder = Widget Function(BuildContext context, Matrix4 transform);
 
-/// [MatrixGestureDetector] detects translation, scale and rotation gestures
+/// [MatrixGestureTransform] detects translation, scale and rotation gestures
 /// and combines them into [Matrix4] object that can be used by [Transform] widget
 /// or by low level [CustomPainter] code. You can customize types of reported
 /// gestures by passing [shouldTranslate], [shouldScale] and [shouldRotate]
 /// parameters.
 ///
-class MatrixGestureDetector extends StatefulWidget {
-  /// [Matrix4] change notification callback
-  ///
-  final MatrixGestureDetectorCallback onMatrixUpdate;
-
+class MatrixGestureTransform extends StatefulWidget {
   /// The [child] contained by this detector.
   ///
   /// {@macro flutter.widgets.child}
   ///
   final Widget child;
+
+  final MatrixGestureTransformBuilder builder;
 
   /// Whether to detect translation gestures during the event processing.
   ///
@@ -42,43 +41,45 @@ class MatrixGestureDetector extends StatefulWidget {
   ///
   final bool shouldRotate;
 
-  /// Whether [ClipRect] widget should clip [child] widget.
-  ///
-  /// Defaults to true.
-  ///
-  final bool clipChild;
-
   /// When set, it will be used for computing a "fixed" focal point
   /// aligned relative to the size of this widget.
   final Alignment focalPointAlignment;
 
+  /// Size of the child widget.
   final Size size;
 
+  /// Whether the child widget should be always in the view.
+  /// If the value is false, the child may be out of the view according to
+  /// the user interaction.
   final bool alwaysShownInView;
 
+  /// Initial transform value if available; otherwise [Matrix4.identity] is used.
   final Matrix4 transform;
 
-  const MatrixGestureDetector({
+  /// [Matrix4] change notification callback
+  ///
+  final MatrixGestureTransformCallback onMatrixUpdate;
+
+  const MatrixGestureTransform({
     Key key,
-    @required this.onMatrixUpdate,
-    @required this.child,
     @required this.size,
+    this.child,
+    this.builder,
     this.shouldTranslate = true,
     this.shouldScale = true,
     this.shouldRotate = true,
-    this.clipChild = true,
     this.alwaysShownInView = true,
     this.transform,
     this.focalPointAlignment,
-  })  : assert(onMatrixUpdate != null),
-        assert(child != null),
+    this.onMatrixUpdate,
+  })  : assert(child != null || builder != null),
         super(key: key);
 
   @override
-  _MatrixGestureDetectorState createState() => _MatrixGestureDetectorState();
+  _MatrixGestureTransformState createState() => _MatrixGestureTransformState();
 }
 
-class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with SingleTickerProviderStateMixin {
+class _MatrixGestureTransformState extends State<MatrixGestureTransform> with SingleTickerProviderStateMixin {
   Matrix4 transform = Matrix4.identity();
   AnimationController controller;
   Animation<Offset> animation;
@@ -86,6 +87,7 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
   @override
   void initState() {
     super.initState();
+    transform = widget.transform;
     controller = AnimationController(vsync: this, duration: Duration(milliseconds: 1000));
   }
 
@@ -96,7 +98,7 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
   }
 
   @override
-  void didUpdateWidget(MatrixGestureDetector oldWidget) {
+  void didUpdateWidget(MatrixGestureTransform oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget?.transform != widget.transform && widget.transform != null) {
       transform = widget.transform;
@@ -105,14 +107,22 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
 
   @override
   Widget build(BuildContext context) {
-    Widget child =
-        widget.clipChild ? ClipRect(child: widget.child) : widget.child;
     return GestureDetector(
       onScaleStart: onScaleStart,
       onScaleUpdate: onScaleUpdate,
       onScaleEnd: onScaleEnd,
-      child: child,
+      child: Transform(
+        transformHitTests: false,
+          transform: transform,
+          child: widget.builder != null
+          ? Builder(builder: (context) => widget.builder(context, transform))
+          : widget.child)
     );
+  }
+
+  void onMatrixUpdate() {
+    setState(() { });
+    widget.onMatrixUpdate?.call(transform);
   }
 
   _ValueUpdater<Offset> translationUpdater = _ValueUpdater(
@@ -163,7 +173,7 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
       }
     }
 
-    widget.onMatrixUpdate(transform);
+    onMatrixUpdate();
   }
 
   void onScaleEnd(ScaleEndDetails details) {
@@ -241,7 +251,7 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
       final cur = transform.getTranslation();
       final trans = Matrix4.identity()..translate(animation.value.dx - cur.x, animation.value.dy - cur.y);
       transform = trans * transform;
-      widget.onMatrixUpdate(transform);
+      onMatrixUpdate();
     });
   }
 

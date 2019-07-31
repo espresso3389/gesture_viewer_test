@@ -58,21 +58,14 @@ class _ScrollContentViewerState extends State<ScrollContentViewer> with SingleTi
       _ratio = math.min(screenSize.width / _contentSize.width, screenSize.height / _contentSize.height);
     }
 
-    return MatrixGestureDetector(
-      clipChild: false,
+    return MatrixGestureTransform(
       shouldRotate: true,
-      size: _contentSize * _ratio,
-      onMatrixUpdate: (m) => setState(() {
-        transform = m;
-      }),
-      child: Transform(
-        transformHitTests: false,
-          transform: transform.scaled(_ratio),
-          child: CustomPaint(
-            painter: CustomPagePainter(contentSize: _contentSize, transform: transform.scaled(_ratio)),
-            size: _contentSize,
-          )
-        ),
+      transform: Matrix4.identity().scaled(_ratio),
+      size: _contentSize,
+      builder: (context, transform) => CustomPaint(
+        painter: CustomPagePainter(contentSize: _contentSize, transform: transform),
+        size: _contentSize,
+      )
     );
   }
 }

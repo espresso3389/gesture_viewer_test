@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:vector_math/vector_math_64.dart';
 
-typedef MatrixGestureDetectorCallback = void Function(Matrix4 matrix);
+typedef MatrixGestureDetectorCallback = void Function(Matrix4 transform);
 
 /// [MatrixGestureDetector] detects translation, scale and rotation gestures
 /// and combines them into [Matrix4] object that can be used by [Transform] widget
@@ -56,6 +56,8 @@ class MatrixGestureDetector extends StatefulWidget {
 
   final bool alwaysShownInView;
 
+  final Matrix4 transform;
+
   const MatrixGestureDetector({
     Key key,
     @required this.onMatrixUpdate,
@@ -66,6 +68,7 @@ class MatrixGestureDetector extends StatefulWidget {
     this.shouldRotate = true,
     this.clipChild = true,
     this.alwaysShownInView = true,
+    this.transform,
     this.focalPointAlignment,
   })  : assert(onMatrixUpdate != null),
         assert(child != null),
@@ -76,7 +79,7 @@ class MatrixGestureDetector extends StatefulWidget {
 }
 
 class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with SingleTickerProviderStateMixin {
-  Matrix4 matrix = Matrix4.identity();
+  Matrix4 transform = Matrix4.identity();
   AnimationController controller;
   Animation<Offset> animation;
 
@@ -90,6 +93,14 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
   void dispose() {
     controller?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(MatrixGestureDetector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget?.transform != widget.transform && widget.transform != null) {
+      transform = widget.transform;
+    }
   }
 
   @override
@@ -125,7 +136,7 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
     // handle matrix translating
     if (widget.shouldTranslate) {
       final translationDelta = translationUpdater.update(details.focalPoint);
-      matrix = _translate(translationDelta) * matrix;
+      transform = _translate(translationDelta) * transform;
     }
 
     Offset focalPoint;
@@ -139,7 +150,7 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
     // handle matrix scaling
     if (widget.shouldScale && details.scale != 1.0) {
       final scaleDelta = scaleUpdater.update(details.scale);
-      matrix = _scale(scaleDelta, focalPoint) * matrix;
+      transform = _scale(scaleDelta, focalPoint) * transform;
     }
 
     // handle matrix rotating
@@ -148,18 +159,18 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
         rotationUpdater.value = details.rotation;
       } else {
         final rotationDelta = rotationUpdater.update(details.rotation);
-        matrix = _rotate(rotationDelta, focalPoint) * matrix;
+        transform = _rotate(rotationDelta, focalPoint) * transform;
       }
     }
 
-    widget.onMatrixUpdate(matrix);
+    widget.onMatrixUpdate(transform);
   }
 
   void onScaleEnd(ScaleEndDetails details) {
 
     Vector3 transv = Vector3.zero(), scale = Vector3.zero();
     Quaternion rotation = Quaternion.identity();
-    matrix.decompose(transv, rotation, scale);
+    transform.decompose(transv, rotation, scale);
 
     //print('trans=(${transv.x},${transv.y}), rotation=${rotation.radians}, scale=${scale.x},${scale.y}');
 
@@ -187,10 +198,10 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
     if (!widget.alwaysShownInView)
       return dest;
     
-    final Vector4 p00 = matrix * Vector4(0, 0, 0, 1);
-    final Vector4 p10 = matrix * Vector4(widget.size.width, 0, 0, 1);
-    final Vector4 p01 = matrix * Vector4(0, widget.size.height, 0, 1);
-    final Vector4 p11 = matrix * Vector4(widget.size.width, widget.size.height, 0, 1);
+    final Vector4 p00 = transform * Vector4(0, 0, 0, 1);
+    final Vector4 p10 = transform * Vector4(widget.size.width, 0, 0, 1);
+    final Vector4 p01 = transform * Vector4(0, widget.size.height, 0, 1);
+    final Vector4 p11 = transform * Vector4(widget.size.width, widget.size.height, 0, 1);
     
     final xx = minmax([p00.x, p10.x, p01.x, p11.x]);
     final yy = minmax([p00.y, p10.y, p01.y, p11.y]);
@@ -227,10 +238,10 @@ class _MatrixGestureDetectorState extends State<MatrixGestureDetector> with Sing
 
   void onAnimate() {
     setState(() {
-      final cur = matrix.getTranslation();
+      final cur = transform.getTranslation();
       final trans = Matrix4.identity()..translate(animation.value.dx - cur.x, animation.value.dy - cur.y);
-      matrix = trans * matrix;
-      widget.onMatrixUpdate(matrix);
+      transform = trans * transform;
+      widget.onMatrixUpdate(transform);
     });
   }
 

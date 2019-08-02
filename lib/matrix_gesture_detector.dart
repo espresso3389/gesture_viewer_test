@@ -272,6 +272,7 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
     final Vector4 p01 = transform * Vector4(0, widget.size.height, 0, 1);
     final Vector4 p11 = transform * Vector4(widget.size.width, widget.size.height, 0, 1);
     
+    // FIXME: I think we can easily calculate min/max of the coords without doing such complex things...
     final xx = minmax([p00.x, p10.x, p01.x, p11.x]);
     final yy = minmax([p00.y, p10.y, p01.y, p11.y]);
     final min = Vector4(xx[0], yy[0], 0, 1);
@@ -279,8 +280,9 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
     final w = max.x - min.x;
     final h = max.y - min.y;
 
-    var x = dest.dx - p00.x + min.x;
-    var y = dest.dy - p00.y + min.y;
+    final screenCenter = screenCenterOffset;
+    var x = dest.dx + screenCenter.dx;
+    var y = dest.dy + screenCenter.dy;
 
     final all = context.size;
     if (w <= all.width) {
@@ -293,7 +295,7 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
     } else {
       if (y > 0) y = 0; else if (y < all.height - h) y = all.height - h;
     }
-    return Offset(x + p00.x - min.x, y + p00.y - min.y);
+    return Offset(x, y);
   }
 
   /// Returns pair of min (0-th) and max (1-st) in a [List].

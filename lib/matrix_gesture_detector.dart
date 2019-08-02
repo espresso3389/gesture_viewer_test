@@ -83,7 +83,7 @@ class MatrixGestureTransform extends StatefulWidget {
 
   final MatrixGestureTransformController controller;
 
-  const MatrixGestureTransform({
+  MatrixGestureTransform({
     Key key,
     @required this.size,
     this.child,
@@ -92,10 +92,10 @@ class MatrixGestureTransform extends StatefulWidget {
     this.shouldScale = true,
     this.shouldRotate = true,
     this.alwaysShownInView = true,
-    this.transform,
-    this.focalPointAlignment,
+    this.focalPointAlignment = Alignment.center,
     this.onMatrixUpdate,
     this.controller,
+    this.transform,
   })  : assert(child != null || builder != null),
         super(key: key);
 
@@ -220,6 +220,8 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
   }
 
   void moveTo(Offset dest, {bool animate = true}) {
+    dest = dest + centerOffset;
+
     if (!animate) {
       setState(() => transform.setTranslation(Vector3(dest.dx, dest.dy, 0)));
       return;
@@ -235,6 +237,19 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
     final trans = transform.getTranslation();
     return Offset(trans.x, trans.y);
   }
+
+  Offset get screenCenterOffset {
+    // return context.size.bottomRight(Offset.zero) / 2;
+    final screenSize = context.size;
+    return Offset(screenSize.width / 2, screenSize.height / 2);
+  }
+
+  Offset get childeCenterOffset {
+    final childCenterV = transform * Vector4(widget.size.width / 2, widget.size.height / 2, 0, 0);
+    return Offset(childCenterV.x, childCenterV.y);
+  }
+
+  Offset get centerOffset => screenCenterOffset - childeCenterOffset;
 
   static Offset calcDestination({Offset velocity, double deceleration}) {
     if (velocity == Offset.zero)
@@ -281,6 +296,7 @@ class _MatrixGestureTransformState extends State<MatrixGestureTransform> with Si
     return Offset(x + p00.x - min.x, y + p00.y - min.y);
   }
 
+  /// Returns pair of min (0-th) and max (1-st) in a [List].
   static List<double> minmax(List<double> values) {
     var min = double.infinity;
     var max = double.negativeInfinity;
